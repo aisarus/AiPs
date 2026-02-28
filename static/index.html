@@ -1,40 +1,597 @@
 <!doctype html>
-<html lang=\"ru\">
+<html lang="ru">
 <head>
-  <meta charset=\"utf-8\" />
-  <meta name=\"viewport\" content=\"width=device-width,initial-scale=1\" />
-  <title>AI Scene Studio — Prompt + Layers + Image</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>AI Scene Studio</title>
   <style>
-    :root{--bg:#0b0f17;--panel:#111827;--line:#243042;--txt:#e5e7eb;--muted:#9ca3af;--acc:#60a5fa;--acc2:#a78bfa;--good:#34d399;--bad:#fb7185;--warn:#fbbf24;--r:18px;}
-    *{box-sizing:border-box}
-    body{margin:0;background:radial-gradient(1200px 700px at 20% -10%, rgba(96,165,250,.25), transparent 55%),radial-gradient(900px 600px at 110% 10%, rgba(167,139,250,.18), transparent 60%),var(--bg);color:var(--txt);font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;}
-    .wrap{max-width:1200px;margin:0 auto;padding:18px 14px 70px}
-    .top{display:flex;gap:14px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;margin:10px 0 14px}
-    .card{border:1px solid var(--line);border-radius:var(--r);background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));padding:12px 14px;min-width:320px}
-    .brand{display:flex;gap:12px;align-items:center}
-    .logo{width:44px;height:44px;border-radius:14px;background:conic-gradient(from 210deg,var(--acc),var(--acc2),#22c55e,var(--acc));position:relative}
-    .logo:after{content:\"\";position:absolute;inset:9px;background:rgba(11,15,23,.85);border-radius:12px;border:1px solid rgba(255,255,255,.08)}
-    h1{margin:0;font-size:16px}
-    .sub{color:var(--muted);margin-top:2px;font-size:12px}
-    label{display:block;color:var(--muted);font-size:12px;margin-bottom:6px}
-    input,textarea,button{font:inherit}
-    input,textarea{width:100%;padding:10px 11px;border-radius:14px;border:1px solid rgba(255,255,255,.10);background:rgba(17,24,39,.55);color:var(--txt);outline:none}
-    textarea{min-height:110px;resize:vertical}
-    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-    .btn{border:1px solid rgba(255,255,255,.12);background:linear-gradient(180deg, rgba(96,165,250,.22), rgba(96,165,250,.10));color:var(--txt);padding:10px 12px;border-radius:14px;cursor:pointer;user-select:none;white-space:nowrap}
-    .btn.secondary{background:linear-gradient(180deg, rgba(167,139,250,.20), rgba(167,139,250,.08))}
-    .btn.ghost{background:rgba(255,255,255,.03)}
-    .pill{display:inline-flex;align-items:center;gap:8px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.03);border-radius:999px;padding:8px 10px;color:var(--muted);font-size:12px}
-    .dot{width:8px;height:8px;border-radius:99px;background:var(--warn)}
-    .dot.good{background:var(--good)} .dot.bad{background:var(--bad)}
-    .grid{display:grid;grid-template-columns:1.1fr .9fr;gap:14px;margin-top:14px}
-    @media(max-width:980px){.grid{grid-template-columns:1fr}}
-    .panel{border:1px solid var(--line);border-radius:var(--r);background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));overflow:hidden}
-    .hd{padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.06);display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:rgba(15,23,42,.35)}
-    .bd{padding:14px}
-    .title{font-weight:650}
-    .small{font-size:12px;color:var(--muted)}
-    .split{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    :root{
+      --bg:#0b0f14;
+      --panel:#0f1620;
+      --panel2:#0c121a;
+      --text:#e8eef7;
+      --muted:#9fb0c5;
+      --line:rgba(255,255,255,.10);
+      --btn:#2b6cff;
+      --btn2:#1a2940;
+      --bad:#ff5c5c;
+      --ok:#35d07f;
+    }
+    html,body{height:100%;}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+      background: radial-gradient(1200px 700px at 10% -10%, rgba(43,108,255,.25), transparent 55%),
+                  radial-gradient(900px 600px at 110% 10%, rgba(53,208,127,.18), transparent 50%),
+                  var(--bg);
+      color:var(--text);
+    }
+    .wrap{
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 14px;
+      box-sizing: border-box;
+      display: grid;
+      grid-template-columns: 420px 1fr;
+      gap: 14px;
+    }
+    .left, .right{
+      background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    .left{ padding: 12px; }
+    .right{ display:flex; flex-direction:column; padding: 12px; gap: 10px; }
+
+    .topbar{
+      display:flex;
+      gap:10px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--line);
+      margin-bottom: 10px;
+    }
+    .btn{
+      appearance:none;
+      border: 1px solid var(--line);
+      background: var(--btn2);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 12px;
+      font-weight: 650;
+      cursor:pointer;
+      user-select:none;
+    }
+    .btn.primary{
+      background: linear-gradient(180deg, rgba(43,108,255,1), rgba(43,108,255,.78));
+      border-color: rgba(43,108,255,.55);
+    }
+    .btn:active{ transform: translateY(1px); }
+    .btn[disabled]{ opacity:.6; cursor:not-allowed; }
+
+    .group{
+      background: rgba(0,0,0,.18);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 10px;
+      margin-bottom: 10px;
+    }
+    .label{
+      font-size: 12px;
+      letter-spacing: .3px;
+      color: var(--muted);
+      margin: 2px 2px 8px 2px;
+      display:flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items:center;
+    }
+    textarea{
+      width: 100%;
+      min-height: 76px;
+      resize: vertical;
+      box-sizing: border-box;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: rgba(5,10,16,.65);
+      color: var(--text);
+      padding: 10px 10px;
+      outline: none;
+      font-size: 14px;
+      line-height: 1.35;
+    }
+    textarea:focus{
+      border-color: rgba(43,108,255,.55);
+      box-shadow: 0 0 0 3px rgba(43,108,255,.18);
+    }
+    .row{
+      display:flex;
+      gap:10px;
+      margin-top: 10px;
+    }
+    .row .btn{ flex:1; padding: 10px 8px; border-radius: 12px; }
+
+    .status{
+      min-height: 18px;
+      font-size: 12px;
+      color: var(--muted);
+      padding: 2px 2px 0 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .status.bad{ color: var(--bad); }
+    .status.ok{ color: var(--ok); }
+
+    .canvasWrap{
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: rgba(0,0,0,.22);
+      overflow:hidden;
+      position:relative;
+      min-height: 520px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+    }
+    canvas{
+      width:100%;
+      height:auto;
+      max-height: 640px;
+      display:block;
+      background: transparent;
+    }
+    .hint{
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 4px;
+    }
+
+    /* Fullscreen viewer */
+    .fs{
+      position:fixed;
+      inset:0;
+      background: rgba(0,0,0,.86);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      z-index: 9999;
+      padding: 14px;
+      box-sizing: border-box;
+    }
+    .fs.open{ display:flex; }
+    .fs img{
+      max-width: 100%;
+      max-height: 100%;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(0,0,0,.25);
+    }
+    .fs .close{
+      position:absolute;
+      top: 14px;
+      right: 14px;
+      background: rgba(255,255,255,.10);
+      border: 1px solid rgba(255,255,255,.18);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 12px;
+      cursor:pointer;
+      font-weight: 700;
+    }
+
+    /* Mobile */
+    @media (max-width: 980px){
+      .wrap{ grid-template-columns: 1fr; }
+      .canvasWrap{ min-height: 420px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="left">
+      <div class="topbar">
+        <button class="btn" id="btnUpload">Загрузить изображение</button>
+        <button class="btn" id="btnImport">Импортировать изображение</button>
+        <input id="fileInput" type="file" accept="image/*" style="display:none" />
+      </div>
+
+      <!-- 1) IMAGE (global) -->
+      <div class="group">
+        <div class="label">
+          <span>Изображение</span>
+          <span class="status" id="st_image"></span>
+        </div>
+        <textarea id="ta_image" placeholder="Общий промпт сцены. Например: «Кролик бежит по лугу на фоне гор и заката»"></textarea>
+        <div class="row">
+          <button class="btn" id="improve_image">Улучшить</button>
+          <button class="btn" id="apply_image">Внести изменения</button>
+        </div>
+        <div class="row">
+          <button class="btn primary" id="gen_all">Сгенерировать</button>
+        </div>
+      </div>
+
+      <!-- 2) OBJECT -->
+      <div class="group">
+        <div class="label">
+          <span>Основной объект</span>
+          <span class="status" id="st_object"></span>
+        </div>
+        <textarea id="ta_object" placeholder="Промпт объекта. Если пусто, берётся из общего «Изображение»."></textarea>
+        <div class="row">
+          <button class="btn" id="improve_object">Улучшить</button>
+          <button class="btn" id="apply_object">Внести изменения</button>
+        </div>
+      </div>
+
+      <!-- 3) BACKGROUND -->
+      <div class="group">
+        <div class="label">
+          <span>Фон</span>
+          <span class="status" id="st_background"></span>
+        </div>
+        <textarea id="ta_background" placeholder="Промпт фона. Если пусто, берётся из общего «Изображение»."></textarea>
+        <div class="row">
+          <button class="btn" id="improve_background">Улучшить</button>
+          <button class="btn" id="apply_background">Внести изменения</button>
+        </div>
+      </div>
+
+      <!-- 4) LIGHT -->
+      <div class="group">
+        <div class="label">
+          <span>Свет</span>
+          <span class="status" id="st_light"></span>
+        </div>
+        <textarea id="ta_light" placeholder="Промпт света (например: «мягкий контровой свет, блики, тёплый закат»)."></textarea>
+        <div class="row">
+          <button class="btn" id="improve_light">Улучшить</button>
+          <button class="btn" id="apply_light">Внести изменения</button>
+        </div>
+      </div>
+
+      <!-- 5) MOOD -->
+      <div class="group" style="margin-bottom:0">
+        <div class="label">
+          <span>Настроение</span>
+          <span class="status" id="st_mood"></span>
+        </div>
+        <textarea id="ta_mood" placeholder="Промпт настроения (например: «мечтательно, кинематографично, лёгкая дымка»)."></textarea>
+        <div class="row">
+          <button class="btn" id="improve_mood">Улучшить</button>
+          <button class="btn" id="apply_mood">Внести изменения</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="right">
+      <div class="canvasWrap" id="canvasWrap" title="Нажми, чтобы открыть на весь экран">
+        <canvas id="canvas" width="1024" height="576"></canvas>
+      </div>
+      <div class="hint" id="hint">
+        Сборка: фон → свет (overlay) → настроение (soft) → объект (хромакей по зелёному).
+      </div>
+    </div>
+  </div>
+
+  <div class="fs" id="fs">
+    <button class="close" id="fsClose">Закрыть</button>
+    <img id="fsImg" alt="preview"/>
+  </div>
+
+<script>
+(() => {
+  const API = "/api";
+
+  const els = {
+    canvas: document.getElementById("canvas"),
+    canvasWrap: document.getElementById("canvasWrap"),
+    fs: document.getElementById("fs"),
+    fsImg: document.getElementById("fsImg"),
+    fsClose: document.getElementById("fsClose"),
+    btnUpload: document.getElementById("btnUpload"),
+    btnImport: document.getElementById("btnImport"),
+    fileInput: document.getElementById("fileInput"),
+
+    ta_image: document.getElementById("ta_image"),
+    ta_object: document.getElementById("ta_object"),
+    ta_background: document.getElementById("ta_background"),
+    ta_light: document.getElementById("ta_light"),
+    ta_mood: document.getElementById("ta_mood"),
+
+    st_image: document.getElementById("st_image"),
+    st_object: document.getElementById("st_object"),
+    st_background: document.getElementById("st_background"),
+    st_light: document.getElementById("st_light"),
+    st_mood: document.getElementById("st_mood"),
+
+    improve_image: document.getElementById("improve_image"),
+    apply_image: document.getElementById("apply_image"),
+    gen_all: document.getElementById("gen_all"),
+
+    improve_object: document.getElementById("improve_object"),
+    apply_object: document.getElementById("apply_object"),
+
+    improve_background: document.getElementById("improve_background"),
+    apply_background: document.getElementById("apply_background"),
+
+    improve_light: document.getElementById("improve_light"),
+    apply_light: document.getElementById("apply_light"),
+
+    improve_mood: document.getElementById("improve_mood"),
+    apply_mood: document.getElementById("apply_mood"),
+  };
+
+  const ctx = els.canvas.getContext("2d", { willReadFrequently: true });
+
+  // Layer images (HTMLImageElement or null)
+  const layers = {
+    background: null,
+    light: null,
+    mood: null,
+    object: null,
+    image: null, // optional full image if you regenerate "image" layer
+  };
+
+  function setStatus(el, text, kind="") {
+    el.textContent = text || "";
+    el.classList.remove("bad","ok");
+    if (kind) el.classList.add(kind);
+  }
+
+  function lockUI(lock) {
+    const buttons = document.querySelectorAll("button");
+    buttons.forEach(b => b.disabled = lock);
+  }
+
+  async function postJSON(url, body) {
+    const r = await fetch(url, {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify(body)
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      const msg = data?.error || `HTTP ${r.status}`;
+      throw new Error(msg);
+    }
+    if (data?.error) throw new Error(data.error);
+    return data;
+  }
+
+  function b64ToImage(b64, mime="image/png") {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = `data:${mime};base64,${b64}`;
+    });
+  }
+
+  function drawComposite() {
+    const W = els.canvas.width;
+    const H = els.canvas.height;
+    ctx.clearRect(0,0,W,H);
+
+    // 1) background
+    if (layers.background) ctx.drawImage(layers.background, 0,0,W,H);
+    else {
+      // fallback: dark backdrop
+      ctx.fillStyle = "#0b0f14";
+      ctx.fillRect(0,0,W,H);
+    }
+
+    // 2) light overlay
+    if (layers.light) {
+      ctx.save();
+      ctx.globalAlpha = 0.65;
+      ctx.globalCompositeOperation = "screen";
+      ctx.drawImage(layers.light, 0,0,W,H);
+      ctx.restore();
+    }
+
+    // 3) mood overlay
+    if (layers.mood) {
+      ctx.save();
+      ctx.globalAlpha = 0.45;
+      ctx.globalCompositeOperation = "soft-light";
+      ctx.drawImage(layers.mood, 0,0,W,H);
+      ctx.restore();
+    }
+
+    // 4) object with chromakey removal (green)
+    if (layers.object) {
+      const tmp = document.createElement("canvas");
+      tmp.width = W; tmp.height = H;
+      const tctx = tmp.getContext("2d", { willReadFrequently:true });
+      tctx.drawImage(layers.object, 0,0,W,H);
+
+      const imgData = tctx.getImageData(0,0,W,H);
+      const d = imgData.data;
+
+      // chromakey: remove "very green" pixels
+      // Threshold tuned to be forgiving.
+      for (let i=0; i<d.length; i+=4) {
+        const r = d[i], g = d[i+1], b = d[i+2];
+        // if green is dominant by margin
+        if (g > 90 && g > r + 35 && g > b + 35) {
+          d[i+3] = 0;
+        }
+      }
+      tctx.putImageData(imgData, 0,0);
+
+      ctx.drawImage(tmp, 0,0,W,H);
+    }
+  }
+
+  function openFullscreen() {
+    const url = els.canvas.toDataURL("image/png");
+    els.fsImg.src = url;
+    els.fs.classList.add("open");
+  }
+  function closeFullscreen() {
+    els.fs.classList.remove("open");
+    els.fsImg.src = "";
+  }
+
+  els.canvasWrap.addEventListener("click", openFullscreen);
+  els.fsClose.addEventListener("click", closeFullscreen);
+  els.fs.addEventListener("click", (e) => { if (e.target === els.fs) closeFullscreen(); });
+
+  // --- API actions ---
+  async function improve(kind) {
+    const ta = els["ta_"+kind];
+    const st = els["st_"+kind];
+    const text = (ta.value || "").trim();
+    if (!text) {
+      setStatus(st, "Нечего улучшать: пусто.", "bad");
+      return;
+    }
+    setStatus(st, "Улучшаю…");
+    lockUI(true);
+    try{
+      const data = await postJSON(`${API}/improve_prompt`, { kind, text });
+      ta.value = data.text || ta.value;
+      setStatus(st, "Готово.", "ok");
+    } catch(err){
+      setStatus(st, String(err.message || err), "bad");
+    } finally {
+      lockUI(false);
+    }
+  }
+
+  function getPromptFor(kind) {
+    const own = (els["ta_"+kind].value || "").trim();
+    const base = (els.ta_image.value || "").trim();
+    return own || base || "";
+  }
+
+  async function regenerate(kind) {
+    const st = els["st_"+kind];
+    const prompt = getPromptFor(kind);
+    if (!prompt) {
+      setStatus(st, "Промпт пустой (и общий тоже пустой).", "bad");
+      return;
+    }
+    setStatus(st, "Генерирую слой…");
+    lockUI(true);
+    try{
+      const data = await postJSON(`${API}/generate_layer`, {
+        kind,
+        prompt
+      });
+      const img = await b64ToImage(data.image_base64, data.mime_type || "image/png");
+      layers[kind] = img;
+      drawComposite();
+      setStatus(st, "Слой обновлён.", "ok");
+    } catch(err){
+      setStatus(st, String(err.message || err), "bad");
+    } finally {
+      lockUI(false);
+    }
+  }
+
+  async function generateAll() {
+    // In your spec: "Сгенерировать" under Image field.
+    // We generate background + light + mood + object, using their own prompts or fallback to "image".
+    setStatus(els.st_image, "Запуск генерации слоёв…");
+    lockUI(true);
+    try{
+      const order = ["background","light","mood","object"];
+      for (const k of order) {
+        const prompt = getPromptFor(k);
+        if (!prompt) continue;
+        setStatus(els["st_"+k], "Генерирую слой…");
+        const data = await postJSON(`${API}/generate_layer`, { kind: k, prompt });
+        const img = await b64ToImage(data.image_base64, data.mime_type || "image/png");
+        layers[k] = img;
+        drawComposite();
+        setStatus(els["st_"+k], "Ок.", "ok");
+      }
+      setStatus(els.st_image, "Готово.", "ok");
+    } catch(err){
+      setStatus(els.st_image, String(err.message || err), "bad");
+    } finally {
+      lockUI(false);
+    }
+  }
+
+  // Wire buttons
+  els.improve_image.addEventListener("click", () => improve("image"));
+  els.apply_image.addEventListener("click", () => regenerate("image")); // optional: regenerate full image layer (not used in composite)
+  els.gen_all.addEventListener("click", generateAll);
+
+  els.improve_object.addEventListener("click", () => improve("object"));
+  els.apply_object.addEventListener("click", () => regenerate("object"));
+
+  els.improve_background.addEventListener("click", () => improve("background"));
+  els.apply_background.addEventListener("click", () => regenerate("background"));
+
+  els.improve_light.addEventListener("click", () => improve("light"));
+  els.apply_light.addEventListener("click", () => regenerate("light"));
+
+  els.improve_mood.addEventListener("click", () => improve("mood"));
+  els.apply_mood.addEventListener("click", () => regenerate("mood"));
+
+  // Upload / Import (applies to BACKGROUND only; you banned extra UI)
+  els.btnUpload.addEventListener("click", () => els.fileInput.click());
+  els.fileInput.addEventListener("change", async () => {
+    const f = els.fileInput.files && els.fileInput.files[0];
+    els.fileInput.value = "";
+    if (!f) return;
+    const st = els.st_background;
+    setStatus(st, "Загружаю в фон…");
+    try{
+      const url = URL.createObjectURL(f);
+      const img = await new Promise((resolve, reject) => {
+        const im = new Image();
+        im.onload = () => resolve(im);
+        im.onerror = reject;
+        im.src = url;
+      });
+      layers.background = img;
+      drawComposite();
+      setStatus(st, "Фон обновлён (локальный файл).", "ok");
+    } catch(err){
+      setStatus(els.st_background, "Не смог загрузить изображение.", "bad");
+    }
+  });
+
+  els.btnImport.addEventListener("click", async () => {
+    const st = els.st_background;
+    const url = prompt("Вставь прямую ссылку на изображение (png/jpg/webp):");
+    if (!url) return;
+    setStatus(st, "Импортирую в фон…");
+    try{
+      const img = await new Promise((resolve, reject) => {
+        const im = new Image();
+        im.crossOrigin = "anonymous";
+        im.onload = () => resolve(im);
+        im.onerror = reject;
+        im.src = url;
+      });
+      layers.background = img;
+      drawComposite();
+      setStatus(st, "Фон обновлён (URL).", "ok");
+    } catch(err){
+      setStatus(st, "Не смог импортировать. Ссылка не прямая или CORS.", "bad");
+    }
+  });
+
+  // Initial draw
+  drawComposite();
+
+  // Quick health ping
+  fetch(`${API}/health`).then(r=>r.json()).then(d=>{
+    if (d && d.ok) setStatus(els.st_image, "Сервер онлайн.", "ok");
+    else setStatus(els.st_image, "Сервер странный.", "bad");
+  }).catch(()=>setStatus(els.st_image, "Сервер не отвечает.", "bad"));
+
+})();
+</script>
+</body>
+</html>    .split{display:grid;grid-template-columns:1fr 1fr;gap:12px}
     @media(max-width:700px){.split{grid-template-columns:1fr}}
     .preview{width:100%;min-height:360px;border-radius:18px;border:1px solid rgba(255,255,255,.10);background:rgba(0,0,0,.12);display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
     .preview img{max-width:100%;max-height:100%;display:block}
