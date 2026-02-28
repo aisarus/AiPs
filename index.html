@@ -1,0 +1,285 @@
+<!doctype html>
+<html lang=\"ru\">
+<head>
+  <meta charset=\"utf-8\" />
+  <meta name=\"viewport\" content=\"width=device-width,initial-scale=1\" />
+  <title>AI Scene Studio — Prompt + Layers + Image</title>
+  <style>
+    :root{--bg:#0b0f17;--panel:#111827;--line:#243042;--txt:#e5e7eb;--muted:#9ca3af;--acc:#60a5fa;--acc2:#a78bfa;--good:#34d399;--bad:#fb7185;--warn:#fbbf24;--r:18px;}
+    *{box-sizing:border-box}
+    body{margin:0;background:radial-gradient(1200px 700px at 20% -10%, rgba(96,165,250,.25), transparent 55%),radial-gradient(900px 600px at 110% 10%, rgba(167,139,250,.18), transparent 60%),var(--bg);color:var(--txt);font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;}
+    .wrap{max-width:1200px;margin:0 auto;padding:18px 14px 70px}
+    .top{display:flex;gap:14px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;margin:10px 0 14px}
+    .card{border:1px solid var(--line);border-radius:var(--r);background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));padding:12px 14px;min-width:320px}
+    .brand{display:flex;gap:12px;align-items:center}
+    .logo{width:44px;height:44px;border-radius:14px;background:conic-gradient(from 210deg,var(--acc),var(--acc2),#22c55e,var(--acc));position:relative}
+    .logo:after{content:\"\";position:absolute;inset:9px;background:rgba(11,15,23,.85);border-radius:12px;border:1px solid rgba(255,255,255,.08)}
+    h1{margin:0;font-size:16px}
+    .sub{color:var(--muted);margin-top:2px;font-size:12px}
+    label{display:block;color:var(--muted);font-size:12px;margin-bottom:6px}
+    input,textarea,button{font:inherit}
+    input,textarea{width:100%;padding:10px 11px;border-radius:14px;border:1px solid rgba(255,255,255,.10);background:rgba(17,24,39,.55);color:var(--txt);outline:none}
+    textarea{min-height:110px;resize:vertical}
+    .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .btn{border:1px solid rgba(255,255,255,.12);background:linear-gradient(180deg, rgba(96,165,250,.22), rgba(96,165,250,.10));color:var(--txt);padding:10px 12px;border-radius:14px;cursor:pointer;user-select:none;white-space:nowrap}
+    .btn.secondary{background:linear-gradient(180deg, rgba(167,139,250,.20), rgba(167,139,250,.08))}
+    .btn.ghost{background:rgba(255,255,255,.03)}
+    .pill{display:inline-flex;align-items:center;gap:8px;border:1px solid rgba(255,255,255,.10);background:rgba(255,255,255,.03);border-radius:999px;padding:8px 10px;color:var(--muted);font-size:12px}
+    .dot{width:8px;height:8px;border-radius:99px;background:var(--warn)}
+    .dot.good{background:var(--good)} .dot.bad{background:var(--bad)}
+    .grid{display:grid;grid-template-columns:1.1fr .9fr;gap:14px;margin-top:14px}
+    @media(max-width:980px){.grid{grid-template-columns:1fr}}
+    .panel{border:1px solid var(--line);border-radius:var(--r);background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));overflow:hidden}
+    .hd{padding:12px 14px;border-bottom:1px solid rgba(255,255,255,.06);display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap;background:rgba(15,23,42,.35)}
+    .bd{padding:14px}
+    .title{font-weight:650}
+    .small{font-size:12px;color:var(--muted)}
+    .split{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    @media(max-width:700px){.split{grid-template-columns:1fr}}
+    .preview{width:100%;min-height:360px;border-radius:18px;border:1px solid rgba(255,255,255,.10);background:rgba(0,0,0,.12);display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+    .preview img{max-width:100%;max-height:100%;display:block}
+    .log{font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:12px;color:#cbd5e1;background:rgba(0,0,0,.25);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:12px;white-space:pre-wrap;max-height:220px;overflow:auto}
+    .modal{position:fixed;inset:0;background:rgba(0,0,0,.72);display:none;align-items:center;justify-content:center;padding:16px;z-index:9999}
+    .modal.on{display:flex}
+    .modal .box{width:min(1100px,100%);height:min(80vh,900px);background:rgba(17,24,39,.75);border:1px solid rgba(255,255,255,.10);border-radius:22px;overflow:hidden;display:flex;flex-direction:column}
+    .modal .bar{padding:10px 12px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;border-bottom:1px solid rgba(255,255,255,.08);background:rgba(15,23,42,.60)}
+    .modal .imgwrap{flex:1;display:flex;align-items:center;justify-content:center;padding:12px;background:rgba(0,0,0,.15)}
+    .modal img{max-width:100%;max-height:100%}
+  </style>
+</head>
+<body>
+<div class=\"wrap\">
+  <div class=\"top\">
+    <div class=\"card\">
+      <div class=\"brand\">
+        <div class=\"logo\"></div>
+        <div>
+          <h1>AI Scene Studio</h1>
+          <div class=\"sub\">Backend: FastAPI + Gemini. UI: pseudo-layers (BG + Subject) + composite.</div>
+        </div>
+      </div>
+      <div class=\"row\" style=\"margin-top:10px\">
+        <span class=\"pill\"><span id=\"statusDot\" class=\"dot\"></span><span id=\"statusText\">Не проверено</span></span>
+        <button class=\"btn\" id=\"ping\">Пинг сервера</button>
+        <span class=\"pill\">Ключ хранится на сервере (Render env)</span>
+      </div>
+    </div>
+
+    <div class=\"card\">
+      <label>Key color (для subject слоя)</label>
+      <div class=\"row\">
+        <input id=\"keyColor\" value=\"#00FF00\" style=\"max-width:140px\" />
+        <button class=\"btn ghost\" id=\"btnBreakdown\">Разбить сцену</button>
+        <button class=\"btn secondary\" id=\"btnImproveScene\">Улучшить сцену</button>
+      </div>
+      <div class=\"small\" style=\"margin-top:8px\">Если генерация картинок падает, поменяй IMAGE_MODEL в Render env vars.</div>
+    </div>
+  </div>
+
+  <div class=\"grid\">
+    <div class=\"panel\">
+      <div class=\"hd\">
+        <div>
+          <div class=\"title\">Промпты</div>
+          <div class=\"small\">Сцена → слои → улучшение → генерация</div>
+        </div>
+        <div class=\"row\">
+          <button class=\"btn\" id=\"btnGenBoth\">Сгенерировать (BG+SUB)</button>
+        </div>
+      </div>
+      <div class=\"bd\">
+        <label>Сцена</label>
+        <textarea id=\"scenePrompt\" placeholder=\"Например: фотореалистичная кухня ночью, мягкий свет, белый кролик курит косяк.\"></textarea>
+
+        <div class=\"split\" style=\"margin-top:12px\">
+          <div>
+            <label>Фон (Background)</label>
+            <textarea id=\"bgPrompt\" placeholder=\"Фон без персонажей и объектов переднего плана\"></textarea>
+            <div class=\"row\" style=\"margin-top:8px\">
+              <button class=\"btn secondary\" id=\"btnImproveBG\">Улучшить фон</button>
+              <button class=\"btn\" id=\"btnGenBG\">Сгенерировать фон</button>
+            </div>
+          </div>
+
+          <div>
+            <label>Объект (Subject) + хромакей</label>
+            <textarea id=\"subPrompt\" placeholder=\"Один объект на чистом хромакее\"></textarea>
+            <div class=\"row\" style=\"margin-top:8px\">
+              <button class=\"btn secondary\" id=\"btnImproveSUB\">Улучшить объект</button>
+              <button class=\"btn\" id=\"btnGenSUB\">Сгенерировать объект</button>
+            </div>
+          </div>
+        </div>
+
+        <div style=\"margin-top:12px\">
+          <label>Логи</label>
+          <div id=\"log\" class=\"log\">Готов. Жми “Пинг сервера”, потом генерируй.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class=\"panel\">
+      <div class=\"hd\">
+        <div>
+          <div class=\"title\">Превью</div>
+          <div class=\"small\">Дешёвый композит: subject рисуется поверх background (canvas).</div>
+        </div>
+        <div class=\"row\">
+          <button class=\"btn ghost\" id=\"btnFullscreen\" disabled>Fullscreen</button>
+          <button class=\"btn ghost\" id=\"btnDownload\" disabled>Скачать PNG</button>
+        </div>
+      </div>
+      <div class=\"bd\">
+        <div class=\"preview\" id=\"preview\"><div class=\"small\" style=\"color:var(--muted)\">Тут появится изображение</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class=\"modal\" id=\"modal\">
+  <div class=\"box\">
+    <div class=\"bar\">
+      <span class=\"pill\"><span class=\"dot good\"></span><span>Fullscreen</span></span>
+      <button class=\"btn ghost\" id=\"modalClose\">Закрыть</button>
+    </div>
+    <div class=\"imgwrap\"><img id=\"modalImg\" alt=\"fullscreen\"/></div>
+  </div>
+</div>
+
+<script>
+  const $ = (id)=>document.getElementById(id);
+  const logEl = $(\"log\");
+  function log(msg){ const t=new Date().toLocaleTimeString(); logEl.textContent = `[${t}] ${msg}\\n` + logEl.textContent; }
+  function setStatus(kind, text){
+    const dot=$(\"statusDot\");
+    dot.className = \"dot\" + (kind===\"good\"? \" good\": kind===\"bad\"? \" bad\": \"\");
+    $(\"statusText\").textContent = text;
+  }
+
+  async function api(path, body){
+    const res = await fetch(path, { method: body ? \"POST\" : \"GET\", headers: body ? { \"Content-Type\":\"application/json\" } : undefined, body: body ? JSON.stringify(body) : undefined });
+    const txt = await res.text();
+    let json;
+    try{ json = JSON.parse(txt); } catch { json = { raw: txt }; }
+    if(!res.ok){ const msg = json?.error || json?.message || txt || `HTTP ${res.status}`; throw new Error(msg); }
+    return json;
+  }
+
+  $(\"ping\").onclick = async ()=>{
+    try{
+      setStatus(\"warn\", \"Проверяю…\");
+      const j = await api(\"/api/ping\");
+      setStatus(j.provider===\"gemini\" ? \"good\":\"bad\", j.provider===\"gemini\" ? \"Gemini OK\":\"Нет ключа/клиента\");
+      log(`Ping: provider=${j.provider}, text=${j.text_model}, image=${j.image_model}`);
+    }catch(e){ setStatus(\"bad\", \"Ошибка\"); log(\"Ping error: \" + e.message); alert(e.message); }
+  };
+
+  async function improve(kind){
+    const keyColor = ($(\"keyColor\").value||\"#00FF00\").trim().toUpperCase();
+    const src = kind===\"scene\" ? $(\"scenePrompt\").value : kind===\"background\" ? $(\"bgPrompt\").value : $(\"subPrompt\").value;
+    if(!src.trim()) throw new Error(\"Промпт пустой.\");
+    log(`Improve(${kind})…`);
+    const j = await api(\"/api/improve_prompt\", {prompt: src, kind, key_color: keyColor});
+    if(kind===\"scene\") $(\"scenePrompt\").value = j.improved;
+    if(kind===\"background\") $(\"bgPrompt\").value = j.improved;
+    if(kind===\"subject\") $(\"subPrompt\").value = j.improved;
+    log(`Improve done (provider=${j.used_provider}).`);
+  }
+
+  $(\"btnImproveScene\").onclick = ()=> improve(\"scene\").catch(e=>{log(\"Improve error: \"+e.message); alert(e.message);});
+  $(\"btnImproveBG\").onclick = ()=> improve(\"background\").catch(e=>{log(\"Improve error: \"+e.message); alert(e.message);});
+  $(\"btnImproveSUB\").onclick = ()=> improve(\"subject\").catch(e=>{log(\"Improve error: \"+e.message); alert(e.message);});
+
+  $(\"btnBreakdown\").onclick = async ()=>{
+    try{
+      const keyColor = ($(\"keyColor\").value||\"#00FF00\").trim().toUpperCase();
+      const scene = $(\"scenePrompt\").value.trim();
+      if(!scene) throw new Error(\"Сцена пустая.\");
+      log(\"Breakdown…\");
+      const j = await api(\"/api/breakdown_scene\", {scene_prompt: scene, key_color: keyColor});
+      $(\"bgPrompt\").value = j.background;
+      $(\"subPrompt\").value = j.subject;
+      log(`Breakdown done (provider=${j.used_provider}).`);
+    }catch(e){ log(\"Breakdown error: \"+e.message); alert(e.message); }
+  };
+
+  let lastDataUrl = \"\";
+
+  function showImage(dataUrl){
+    const p = $(\"preview\");
+    p.innerHTML = \"\";
+    const img = new Image();
+    img.src = dataUrl;
+    p.appendChild(img);
+    $(\"btnFullscreen\").disabled = false;
+    $(\"btnDownload\").disabled = false;
+    lastDataUrl = dataUrl;
+  }
+
+  async function genLayer(kind){
+    const keyColor = ($(\"keyColor\").value||\"#00FF00\").trim().toUpperCase();
+    const prompt = kind===\"background\" ? $(\"bgPrompt\").value : $(\"subPrompt\").value;
+    if(!prompt.trim()) throw new Error(\"Промпт слоя пустой.\");
+    log(`Generate ${kind}…`);
+    const j = await api(\"/api/generate_layer\", {layer_kind: kind, prompt, key_color: keyColor});
+    const dataUrl = `data:${j.mime_type};base64,${j.image_base64}`;
+    log(`Generated ${kind} (provider=${j.used_provider}).`);
+    return { dataUrl };
+  }
+
+  function composite(bgUrl, subUrl){
+    return new Promise((resolve, reject)=>{
+      const bg = new Image(); const sub = new Image();
+      bg.onload = ()=>{
+        sub.onload = ()=>{
+          const w = bg.naturalWidth || 1024;
+          const h = bg.naturalHeight || 640;
+          const c = document.createElement(\"canvas\");
+          c.width = w; c.height = h;
+          const ctx = c.getContext(\"2d\");
+          ctx.drawImage(bg,0,0,w,h);
+          ctx.drawImage(sub,0,0,w,h);
+          resolve(c.toDataURL(\"image/png\"));
+        };
+        sub.onerror = ()=>reject(new Error(\"Subject image load failed\"));
+        sub.src = subUrl;
+      };
+      bg.onerror = ()=>reject(new Error(\"Background image load failed\"));
+      bg.src = bgUrl;
+    });
+  }
+
+  $(\"btnGenBG\").onclick = async ()=>{ try{ const bg=await genLayer(\"background\"); showImage(bg.dataUrl);}catch(e){log(\"Gen BG error: \"+e.message); alert(e.message);} };
+  $(\"btnGenSUB\").onclick = async ()=>{ try{ const sub=await genLayer(\"subject\"); showImage(sub.dataUrl);}catch(e){log(\"Gen SUB error: \"+e.message); alert(e.message);} };
+
+  $(\"btnGenBoth\").onclick = async ()=>{
+    try{
+      if(!$(\"bgPrompt\").value.trim() || !$(\"subPrompt\").value.trim()){
+        await $(\"btnBreakdown\").onclick();
+      }
+      const bg = await genLayer(\"background\");
+      const sub = await genLayer(\"subject\");
+      log(\"Compositing…\");
+      const out = await composite(bg.dataUrl, sub.dataUrl);
+      showImage(out);
+      log(\"Composite done.\");
+    }catch(e){ log(\"GenBoth error: \"+e.message); alert(e.message); }
+  };
+
+  $(\"btnFullscreen\").onclick = ()=>{
+    if(!lastDataUrl) return;
+    $(\"modalImg\").src = lastDataUrl;
+    $(\"modal\").classList.add(\"on\");
+  };
+  $(\"modalClose\").onclick = ()=> $(\"modal\").classList.remove(\"on\");
+  $(\"modal\").onclick = (ev)=>{ if(ev.target.id===\"modal\") $(\"modal\").classList.remove(\"on\"); };
+
+  $(\"btnDownload\").onclick = ()=>{
+    if(!lastDataUrl) return;
+    const a = document.createElement(\"a\");
+    a.href = lastDataUrl; a.download = \"ai_scene_studio.png\";
+    document.body.appendChild(a); a.click(); a.remove();
+  };
+</script>
+</body>
+</html>
