@@ -1,40 +1,233 @@
 import os
 import base64
-import traceback
-from typing import Any, Dict, Literal, Optional
+from typing import Optional, Literal
 
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
-STATIC_DIR = os.getenv("STATIC_DIR", "static")
-INDEX_FILE = os.path.join(STATIC_DIR, "index.html")
+# Gemini SDK (Google GenAI)
+# Requirements must include: google-genai
+try:
+    from google import genai
+except Exception:
+    genai = None
 
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-TEXT_MODEL = os.getenv("TEXT_MODEL", "gemini-2.5-flash")
-IMAGE_MODEL = os.getenv("IMAGE_MODEL", "gemini-2.5-flash-image")
-KEY_COLOR_DEFAULT = os.getenv("KEY_COLOR_DEFAULT", "#00FF00").upper()
+APP_DIR = os.path.dirname(os.path.abspath(__file__))
+STATIC_DIR = os.path.join(APP_DIR, "static")
 
-_gclient = None
-_gclient_err = None
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "").strip()
 
-def get_client():
-    global _gclient, _gclient_err
-    if _gclient is not None:
-        return _gclient
-    if not GEMINI_API_KEY:
-        _gclient_err = "Missing GEMINI_API_KEY (set it in Render Environment)."
-        return None
+# Choose models (you can change later without touching frontend)
+TEXT_MODEL = os.getenv("TEXT_MODEL", "gemini-1.5-flash")
+IMAGE_MODEL = os.getenv("IMAGE_MODEL", "gemini-2.0-flash-exp-image-generation")
+
+client = None
+if GEMINI_API_KEY and genai is not None:
     try:
-        from google import genai  # google-genai
-        _gclient = genai.Client(api_key=GEMINI_API_KEY)
-        return _gclient
-    except Exception as e:
-        _gclient_err = f"Failed to init google-genai client: {type(e).__name__}: {e}"
-        return None
+        client = genai.Client(api_key=GEMINI_API_KEY)
+    except Exception:
+        client = None
 
+
+app = FastAPI()
+
+
+class ImproveRequest(BaseModel):
+    kind: Literal["image", "object", "background", "light", "mood"]
+    text: str
+
+
+class ImproveResponse(BaseModel):
+    text: str
+
+
+class LayerRequest(BaseModel):
+    kind: Literal["image", "object", "background", "light", "mood"]
+    prompt: str
+
+
+class LayerResponse(BaseModel):
+    image_base64: str
+    mime_type: str
+    kind: str
+
+
+def _extract_inline_image(resp) -> tuple[Optional[bytes], str]:
+    """
+    Tries to extract inline image bytes from google-genai response.
+    Returns (bytes, mime_type). If none found, (None, "image/png").
+    """
+    mime = "image/png"
+    try:
+        candidates = getattr(resp, "candidates", None) or []
+        for cand in candidates:
+            content = getattr(cand, "content", None)
+            parts = getattr(content, "parts", None) or []
+            for part in parts:
+                inline = getattr(part, "inline_data", None)
+                if inline and getattr(inline, "data", None) is not None:
+                    data = inline.data
+                    mime = getattr(inline, "mime_type", mime) or mime
+                    if isinstance(data, (bytes, bytearray)):
+                        return bytes(data), mime
+                    # sometimes returned as base64 string
+                    if isinstance(data, str):
+                        try:
+                            return base64.b64decode(data), mime
+                        except Exception:
+                            pass
+    except Exception:
+        pass
+    return None, mime
+
+
+def _json_error(msg: str, status: int = 400):
+    return JSONResponse(status_code=status, content={"error": msg})
+
+
+@app.get("/api/health")
+def health():
+    return {
+        "ok": True,
+        "configured": bool(client),
+        "has_key": bool(GEMINI_API_KEY),
+        "text_model": TEXT_MODEL,
+        "image_model": IMAGE_MODEL,
+    }
+
+
+@app.post("/api/improve_prompt", response_model=ImproveResponse)
+def improve_prompt(req: ImproveRequest):
+    if client is None:
+        return _json_error("GEMINI_API_KEY not set or google-genai is missing.", 500)
+
+    text = (req.text or "").strip()
+    if not text:
+        return _json_error("Empty text.", 400)
+
+    # Simple, honest "improvement": make it more specific, add constraints per kind.
+    rules_by_kind = {
+        "image": "Improve the overall scene prompt: add concrete details (style, camera, time, atmosphere), keep it ONE scene.",
+        "background": "Improve background prompt only: no main subject in foreground, coherent environment, no text/watermarks.",
+        "object": "Improve main subject prompt: ONE subject, full body visible, centered, clean silhouette, bright green background for chroma key, no extra objects, no text/watermarks.",
+        "light": "Improve lighting prompt: describe light direction, softness, color temperature, shadows, cinematic intent. No text.",
+        "mood": "Improve mood prompt: describe mood/grade/atmosphere (fog, film look, palette), no text, no watermark."
+    }
+
+    system = (
+        "You are a prompt editor. Output ONLY the improved prompt text. "
+        "No quotes, no bullets, no explanations."
+    )
+    rule = rules_by_kind.get(req.kind, "Improve the prompt.")
+
+    prompt = f"{system}\n\nRULE:\n{rule}\n\nINPUT:\n{text}\n\nOUTPUT:"
+
+    try:
+        resp = client.models.generate_content(
+            model=TEXT_MODEL,
+            contents=[prompt],
+        )
+        out = getattr(resp, "text", None)
+        if out and isinstance(out, str) and out.strip():
+            return ImproveResponse(text=out.strip())
+
+        # fallback parse
+        parts = []
+        candidates = getattr(resp, "candidates", None) or []
+        for cand in candidates:
+            c = getattr(cand, "content", None)
+            for p in getattr(c, "parts", None) or []:
+                t = getattr(p, "text", None)
+                if t:
+                    parts.append(t)
+        joined = ("\n".join(parts)).strip()
+        if not joined:
+            return _json_error("Text model returned empty response.", 502)
+        return ImproveResponse(text=joined)
+
+    except Exception as e:
+        return _json_error(f"Text generation failed: {type(e).__name__}: {e}", 500)
+
+
+@app.post("/api/generate_layer", response_model=LayerResponse)
+def generate_layer(req: LayerRequest):
+    if client is None:
+        return _json_error("GEMINI_API_KEY not set or google-genai is missing.", 500)
+
+    base = (req.prompt or "").strip()
+    if not base:
+        return _json_error("Empty prompt.", 400)
+
+    # Compose strict layer prompts (this is the whole “principle” of the tool):
+    # - it doesn't do magic; it adds constraints by layer type to make outputs usable.
+    if req.kind == "background":
+        final_prompt = (
+            f"{base}\n\n"
+            "STRICT RULES:\n"
+            "- Background only. No main subject in the foreground.\n"
+            "- Wide establishing shot, coherent perspective.\n"
+            "- No text, no watermark, no logos.\n"
+        )
+    elif req.kind == "object":
+        final_prompt = (
+            f"{base}\n\n"
+            "STRICT RULES:\n"
+            "- One main subject only, centered, full body visible (not cropped).\n"
+            "- Background must be perfectly solid bright green (#00FF00), flat color.\n"
+            "- No additional objects, no scenery.\n"
+            "- No text, no watermark, no logos.\n"
+            "- Clean edges, clear silhouette.\n"
+        )
+    elif req.kind == "light":
+        final_prompt = (
+            f"{base}\n\n"
+            "STRICT RULES:\n"
+            "- Generate a lighting overlay for the whole frame.\n"
+            "- Abstract light/shadow pattern, cinematic.\n"
+            "- No text, no watermark, no logos.\n"
+        )
+    elif req.kind == "mood":
+        final_prompt = (
+            f"{base}\n\n"
+            "STRICT RULES:\n"
+            "- Generate a mood/color-grading overlay for the whole frame.\n"
+            "- Atmospheric, film look.\n"
+            "- No text, no watermark, no logos.\n"
+        )
+    else:  # image
+        final_prompt = (
+            f"{base}\n\n"
+            "STRICT RULES:\n"
+            "- One coherent scene.\n"
+            "- No text, no watermark, no logos.\n"
+        )
+
+    try:
+        resp = client.models.generate_content(
+            model=IMAGE_MODEL,
+            contents=[final_prompt],
+        )
+        img_bytes, mime = _extract_inline_image(resp)
+        if not img_bytes:
+            return _json_error("Image not generated (no inline image data in response). Try simplifying prompt.", 502)
+
+        b64 = base64.b64encode(img_bytes).decode("utf-8")
+        return LayerResponse(image_base64=b64, mime_type=mime, kind=req.kind)
+
+    except Exception as e:
+        return _json_error(f"Layer generation failed: {type(e).__name__}: {e}", 500)
+
+
+# Serve static UI
+@app.get("/")
+def root():
+    index_path = os.path.join(STATIC_DIR, "index.html")
+    return FileResponse(index_path)
+
+
+app.mount("/", StaticFiles(directory=STATIC_DIR, html=True), name="static")
 def extract_text(resp: Any) -> str:
     txt = getattr(resp, "text", None)
     if txt:
